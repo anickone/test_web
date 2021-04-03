@@ -1,3 +1,13 @@
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    NoAlertPresentException,
+    TimeoutException
+    )
+import time
 from random import randint
 from string import (
     ascii_uppercase as upper,
@@ -11,6 +21,136 @@ length_theme = 10
 length_msg = 10
 count_letters = 15
 symbols = list('{}{}{}'.format(upper, lower, digits))
+
+class BaseMail:
+    def __init__(self, timeout=4):
+        self.timeout = timeout
+        self.start()
+
+    def start(self):
+        self.browser = webdriver.Chrome()
+
+    def open(self, url):
+        self.browser.get(url)
+
+    def stop(self):
+        time.sleep(3)
+        self.browser.quit()
+
+    def is_element_present(self, how, what, timeout=4):
+        try:
+            WebDriverWait(self.browser, timeout
+                ).until(EC.presence_of_element_located(
+                    (how, what)
+                )
+            )
+        except TimeoutException:
+            return False
+        return True
+
+    def is_element_interactable(self, how, what, timeout=4):
+        try:
+            WebDriverWait(self.browser, timeout
+                ).until(EC.element_to_be_clickable(
+                    (how, what)
+                )
+            )
+        except TimeoutException:
+            return False
+        return True
+
+    def check_element(self, how, what, timeout=4):
+        return self.is_element_present(how, what, timeout) and \
+                self.is_element_interactable(how, what, timeout)
+
+    def get_element(self, how, what, timeout=4):
+        if self.check_element(how, what, timeout):
+            return self.browser.find_element(how, what)
+        print('Element "{}" is not available.'.format(what))
+        self.stop()
+
+    def click(self, what, how=By.XPATH):
+        el = self.get_element(how, what)
+        el.click()
+
+    def send_text(self, text, what, how=By.XPATH):
+        el = self.get_element(how, what)
+        el.send_keys(text)
+
+    def get_text(self, what, how=By.XPATH):
+        el = self.get_element(how, what)
+        return el.text
+
+class YahooMail(BaseMail):
+    def __init__(self, timeout=4):
+        super(YahooMail, self).__init__(timeout)
+        # login selectors
+        self.login_url = 'https://login.yahoo.com/'
+        self.email_input = '//input[@name="username"]'
+        self.email_btn = '//input[@type="submit"]'
+        self.password_input = '//input[@type="password"]'
+        self.password_btn = '//button[@type="submit"]'
+        self.mail_box_url = 'https://mail.yahoo.com/'
+        # logout selectors
+        self.logout_url = 'https://login.yahoo.com/account/logout'
+        self.logout_btn = '//input[@data-logout="yes"]'
+        # send letter selectors
+        self.new_letter = '//a[@data-test-id="compose-button"]'
+        self.msg_to = '//input[@id="message-to-field"]'
+        self.field_theme = '//input[@data-test-id="compose-subject"]'
+        self.field_msg = '//div[@data-test-id="rte"]/div'
+        self.send_btn = '//button[@data-test-id="compose-send-button"]/span'
+        # check letter selectors
+        self.letter_theme = '//span[@data-test-id="message-group-subject-text"]'
+        self.letter_msg = '//div[@dir="ltr"]'
+        self.back_to_list = '//button[@data-test-id="toolbar-back-to-list"]'
+        self.letter_selector = '//div[@data-test-id="virtual-list"]/ul/li[{}]'.format
+        self.letter_delete = '//button[@data-test-id="toolbar-delete"]'
+
+    def login(self):
+        # open mail login url
+        self.open(self.login_url)
+        # input email and click btn
+        self.send_text(setup['email'], self.email_input)
+        self.click(self.email_btn)
+        # input password and click btn
+        self.send_text(setup['password'], self.password_input)
+        self.click(self.password_btn)
+        # redirect from index page to mail box
+        self.open(self.mail_box_url)
+
+    def logout(self):
+        self.open(self.logout_url)
+        self.click(self.logout_btn)
+
+    def read_letter(self, this_letter):
+        # open letter
+        self.click(this_letter)
+        # read theme
+        theme = self.get_text(self.letter_theme)
+        # read msg
+        msg = self.get_text(self.letter_msg)
+        # back to list letters
+        self.click(self.back_to_list)
+        return theme, msg
+
+    def send_letter(self, to_email, theme, msg):
+        # open compose letter app
+        self.click(self.new_letter)
+        # field msg to email
+        self.send_text(to_email, self.msg_to)
+        # field theme
+        self.send_text(theme, self.field_theme)
+        # field msg
+        self.send_text(msg, self.field_msg)
+        # send letter
+        self.click(self.send_btn)
+
+    def delete_letter(self, this_letter):
+        # open letter
+        self.click(this_letter)
+        # delete
+        self.click(self.letter_delete)
 
 def get_random_text(length):
     flag_digit, flag_char, txt = False, False, ''
@@ -48,7 +188,7 @@ def get_result_msg(letters):
         )
     return result_msg
 
-def get_letters(count_letters):
+def generate_letters(count_letters):
     letters = {}
     for _ in range(count_letters):
         theme = get_random_text(length_theme)
@@ -56,9 +196,81 @@ def get_letters(count_letters):
         letters[theme] = msg
     return letters
 
+def send_letters(service, letters):
+    for theme, msg in letters.items():
+        service.send_letter(setup['email'], theme, msg)
+
+def check_letters(service, letters):
+    check = set(letters)
+    read_letters = {}
+    i = 0
+    while check:
+        i += 1
+        selector = service.letter_selector(i + 2)
+        if service.check_element(By.XPATH, selector):
+            theme, msg = service.read_letter(selector)
+            if theme in check:
+                check.remove(theme)
+                read_letters[theme] = msg
+        else:
+            print('not found letters:', check)
+            break
+    else:
+        print('all letters found')
+    return read_letters
+
+def delete_letters(service, letters, delete_all=False, save_letters=[]):
+    """
+    If delete_all=True all letters are deleted, except save_letters.
+    If delete_all=False all that were sent are deleted.
+    """
+    check = set(letters)
+    i = 1
+    while check or delete_all:
+        selector = service.letter_selector(i + 2)
+        if service.check_element(By.XPATH, selector):
+            theme, _ = service.read_letter(selector)
+            if theme in save_letters:
+                i += 1
+                continue
+            elif theme in check or delete_all:
+                check.remove(theme)
+                service.delete_letter(selector)
+            else:
+                i += 1
+        else:
+            if delete_all:
+                print('all not save letters deleted')
+            else:
+                print('not deleted letters because not found:', check)
+            break
+    else:
+        print('all sent letters deleted')
+
 def main():
-    letters = get_letters(count_letters)
-    print(get_result_msg(letters))
+    # enter to mail box
+    service = YahooMail()
+    service.login()
+
+    # send letters
+    letters = generate_letters(count_letters)
+    send_letters(service, letters)
+
+    # wait for letters
+    time.sleep(60*10)
+
+    # check letters
+    read_letters = check_letters(service, letters)
+
+    # send result msg
+    result_msg = get_result_msg(read_letters)
+    service.send_letter(setup['email'], 'result', result_msg)
+
+    # delete letters past result msg
+    delete_letters(service, letters)
+
+    # service.logout()
+    # service.stop()
 
 if __name__ == '__main__':
     main()
