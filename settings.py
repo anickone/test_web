@@ -1,0 +1,4 @@
+setup = {
+    'email': '',
+    'password': '',
+}
