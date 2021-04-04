@@ -7,23 +7,23 @@
 
 В работе использовать Python 2.7 + Selenium.
 
-## Description
-It work on Python 2.7 or 3.
+## Description  
+It work on Python 2.7 or 3.  
 
-## Requirements
-Python 2.7 or 3
-Selenium
+## Requirements  
+Python 2.7 or 3  
+Selenium  
 
-## Install
-for Python 2.7
-virtualenv -p /usr/bin/python2.7 virtualenv_name
-source virtualenv_name/bin/activate
+## Install  
+for Python 2.7  
+virtualenv -p /usr/bin/python2.7 virtualenv_name  
+source virtualenv_name/bin/activate  
 
-or for Python 3
-virtualenv -p /usr/bin/python3 virtualenv_name
-source virtualenv_name/bin/activate
+or for Python 3  
+virtualenv -p /usr/bin/python3 virtualenv_name  
+source virtualenv_name/bin/activate  
 
-git clone https://github.com/anickone/test_web.git
-add your email and password in settings.py
-cd test_web
-python main.py
+git clone https://github.com/anickone/test_web.git  
+add your email and password in settings.py  
+cd test_web  
+python main.py  
