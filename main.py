@@ -2,11 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import (
-    NoSuchElementException,
-    NoAlertPresentException,
-    TimeoutException
-    )
+from selenium.common.exceptions import TimeoutException
 import time
 from random import randint
 from string import (
@@ -22,7 +18,7 @@ length_msg = 10
 count_letters = 15
 symbols = list('{}{}{}'.format(upper, lower, digits))
 
-class BaseMail:
+class BaseMail(object):
     def __init__(self, timeout=4):
         self.timeout = timeout
         self.start()
@@ -34,7 +30,6 @@ class BaseMail:
         self.browser.get(url)
 
     def stop(self):
-        time.sleep(3)
         self.browser.quit()
 
     def is_element_present(self, how, what, timeout=4):
@@ -67,7 +62,7 @@ class BaseMail:
         if self.check_element(how, what, timeout):
             return self.browser.find_element(how, what)
         print('Element "{}" is not available.'.format(what))
-        self.stop()
+        # self.stop()
 
     def click(self, what, how=By.XPATH):
         el = self.get_element(how, what)
@@ -104,8 +99,11 @@ class YahooMail(BaseMail):
         self.letter_theme = '//span[@data-test-id="message-group-subject-text"]'
         self.letter_msg = '//div[@dir="ltr"]'
         self.back_to_list = '//button[@data-test-id="toolbar-back-to-list"]'
-        self.letter_selector = '//div[@data-test-id="virtual-list"]/ul/li[{}]'.format
+        self.letter_selector = '(//a[@role="row"])[{}]'.format
         self.letter_delete = '//button[@data-test-id="toolbar-delete"]'
+        # check inbox
+        self.inbox_link = '//a[@data-test-folder-name="Inbox"]'
+        self.unread_letters = 'data-test-unread-count'
 
     def login(self):
         # open mail login url
@@ -152,12 +150,27 @@ class YahooMail(BaseMail):
         # delete
         self.click(self.letter_delete)
 
+    def check_new_letters_inbox(self):
+        # check new letter
+        self.click(self.inbox_link)
+        a = self.get_element(By.XPATH, self.inbox_link, timeout=4)
+        try:
+            unread_cnt_letters = int(a.get_attribute(self.unread_letters))
+        except ValueError:
+            unread_cnt_letters = 0
+            err = 'Change behavior attribute inbox "{}".'
+            print(err.format(self.unread_letters))
+        return unread_cnt_letters
+
+def isdecimal(char):
+    return char in '0123456789'
+
 def get_random_text(length):
     flag_digit, flag_char, txt = False, False, ''
     while True:
         for _ in range(length):
             char = symbols[randint(0, len(symbols)-1)]
-            if char.isdecimal():
+            if isdecimal(char):
                 flag_digit = True
             elif char.isalpha():
                 flag_char = True
@@ -169,7 +182,7 @@ def get_random_text(length):
 def get_count_char_and_digit(txt):
     cnt_digits = cnt_chars = 0
     for symbol in txt:
-        if symbol.isdecimal():
+        if isdecimal(symbol):
             cnt_digits += 1
         elif symbol.isalpha():
             cnt_chars += 1
@@ -206,7 +219,7 @@ def check_letters(service, letters):
     i = 0
     while check:
         i += 1
-        selector = service.letter_selector(i + 2)
+        selector = service.letter_selector(i)
         if service.check_element(By.XPATH, selector):
             theme, msg = service.read_letter(selector)
             if theme in check:
@@ -227,14 +240,16 @@ def delete_letters(service, letters, delete_all=False, save_letters=[]):
     check = set(letters)
     i = 1
     while check or delete_all:
-        selector = service.letter_selector(i + 2)
+        selector = service.letter_selector(i)
         if service.check_element(By.XPATH, selector):
             theme, _ = service.read_letter(selector)
             if theme in save_letters:
                 i += 1
                 continue
-            elif theme in check or delete_all:
+            elif theme in check:
                 check.remove(theme)
+                service.delete_letter(selector)
+            elif delete_all:
                 service.delete_letter(selector)
             else:
                 i += 1
@@ -252,12 +267,18 @@ def main():
     service = YahooMail()
     service.login()
 
+    unread_letters = service.check_new_letters_inbox()
     # send letters
     letters = generate_letters(count_letters)
     send_letters(service, letters)
 
-    # wait for letters
-    time.sleep(60*10)
+    # wait for letters ~ 2-3 minutes
+    for _ in range(60):
+        time.sleep(15)
+        new = service.check_new_letters_inbox() - unread_letters
+        print('Received {}.'.format(new))
+        if new >= count_letters:
+            break
 
     # check letters
     read_letters = check_letters(service, letters)
@@ -269,8 +290,11 @@ def main():
     # delete letters past result msg
     delete_letters(service, letters)
 
-    # service.logout()
-    # service.stop()
+    # delete all not saved letters
+    # delete_letters(service, [], delete_all=True, save_letters=['result'])
+
+    service.logout()
+    service.stop()
 
 if __name__ == '__main__':
     main()
