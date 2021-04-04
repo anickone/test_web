@@ -4,4 +4,3 @@ migrations/
 *~
 *.sqlite3
 *.db
-settings.py
