@@ -1,4 +1,3 @@
-from selenium.webdriver.common.by import By
 from random import randint
 
 from settings import (
@@ -56,56 +55,3 @@ def generate_letters(count_letters):
         msg = get_random_text(length_msg)
         letters[theme] = msg
     return letters
-
-def send_letters(service, letters):
-    for theme, msg in letters.items():
-        service.send_letter(setup['email'], theme, msg)
-
-def check_letters(service, letters):
-    check = set(letters)
-    read_letters = {}
-    i = 0
-    while check:
-        i += 1
-        selector = service.letter_selector(i)
-        if service.check_element(By.XPATH, selector):
-            theme, msg = service.read_letter(selector)
-            if theme in check:
-                check.remove(theme)
-                read_letters[theme] = msg
-        else:
-            print('not found letters:', check)
-            break
-    else:
-        print('all letters found')
-    return read_letters
-
-def delete_letters(service, letters, delete_all=False, save_letters=[]):
-    """
-    If delete_all=True all letters are deleted, except save_letters.
-    If delete_all=False all that were sent are deleted.
-    """
-    check = set(letters)
-    i = 1
-    while check or delete_all:
-        selector = service.letter_selector(i)
-        if service.check_element(By.XPATH, selector):
-            theme, _ = service.read_letter(selector)
-            if theme in save_letters:
-                i += 1
-                continue
-            elif theme in check:
-                check.remove(theme)
-                service.delete_letter(selector)
-            elif delete_all:
-                service.delete_letter(selector)
-            else:
-                i += 1
-        else:
-            if delete_all:
-                print('all not save letters deleted')
-            else:
-                print('not deleted letters because not found:', check)
-            break
-    else:
-        print('all sent letters deleted')

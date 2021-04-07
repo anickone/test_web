@@ -5,10 +5,10 @@ from string import (
 )
 
 setup = {
-    'email': '@yahoo.com',
+    'email': '',
     'password': ''
 }
 length_theme = 10
 length_msg = 10
-count_letters = 15
+count_letters = 5
 symbols = list('{}{}{}'.format(upper, lower, digits))
