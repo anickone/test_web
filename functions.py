@@ -37,7 +37,7 @@ def get_count_char_and_digit(txt):
 
 def get_result_msg(letters):
     result_msg = ''
-    fmt = '{i}. Received mail on theme {theme} with message: {msg}. It ' \
+    fmt = u'{i}. Received mail on theme {theme} with message: {msg}. It ' \
         'contains {cnt_chars} letters and {cnt_digits} numbers.\n'
     for i, letter in enumerate(letters.items(), 1):
         theme, msg = letter
